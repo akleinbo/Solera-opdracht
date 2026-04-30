@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\VerdeelSchapenService;
+use App\Services\VerdeelSchapen2Service;
 use Exception;
 use Illuminate\Console\Command;
 
@@ -15,14 +15,14 @@ class VerdeelSchapen extends Command
 
     protected $description = 'Kijk of je de schapen kan verdelen';
 
-    public function __construct(VerdeelSchapenService $verdeelSchapenService) {
+    public function __construct(VerdeelSchapen2Service $verdeelSchapenService) {
         parent::__construct();
     }
 
     /**
      * @throws Exception
      */
-    public function handle(VerdeelSchapenService $verdeelSchapen)
+    public function handle(VerdeelSchapen2Service $verdeelSchapen)
     {
         $aantalSchapen = (int) $this->argument('aantalSchapen');
         $stallen = $this->argument('stallen');
