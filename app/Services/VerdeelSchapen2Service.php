@@ -4,68 +4,87 @@ namespace App\Services;
 
 class VerdeelSchapen2Service
 {
-
     public function verdeelSchapen(int $aantalSchapen, array $stallen): string
     {
-        // controleer of alle schapen een minimale oppervlakte van 2 m2 hebben
-        if (!$this->kunnenWeVerdelen($stallen, $aantalSchapen, 2)) {
+        if ($aantalSchapen <= 0 || empty($stallen)) {
             return 'Het ingevoerde aantal schapen kan niet worden ondergebracht in de stallen!';
         }
 
-        // 3 schapen regel, let op, 1 stal
-        // bij een situatie van 3 schapen en slechts 1 stal kunnen we dit goedkoop controleren
-        if ($aantalSchapen === 3 && count($stallen) === 1) {
+        if (!$this->bestaatMinimaleOplossing($aantalSchapen, $stallen, 2.0)) {
             return 'Het ingevoerde aantal schapen kan niet worden ondergebracht in de stallen!';
         }
 
-        // controleer welke verdeling mogelijk is
-        $result = $this->controleerWelkeVerdelingMogelijkIs($aantalSchapen, $stallen);
+        $result = $this->zoekMaxMinOppervlakte($aantalSchapen, $stallen);
 
         return number_format($result, 1, ',', '.');
     }
 
-    public function controleerWelkeVerdelingMogelijkIs(int $aantalSchapen, array $stallen): float
+    private function zoekMaxMinOppervlakte(int $aantalSchapen, array $stallen): float
     {
-        // minimale oppervlakte per schaap
-        $low = 1.9;
-
-        // maximale oppervlakte per schaap mogelijk
+        $low = 1.0;
         $high = max($stallen);
+        $best = 0.0;
 
-        $result = 0.0;
         while ($high - $low > 0.0001) {
             $mid = ($low + $high) / 2;
 
-            if ($this->kunnenWeVerdelen($stallen, $aantalSchapen, $mid)) {
-                $result = $mid;
+            if ($this->kanVerdelenZonder3($stallen, $aantalSchapen, $mid)) {
+                $best = $mid;
                 $low = $mid;
             } else {
                 $high = $mid;
             }
         }
 
-        return $result;
+        return $best;
     }
 
-    function kunnenWeVerdelen(array $stallen, int $aantalSchapen, float $minOppervlakte): bool
+    private function bestaatMinimaleOplossing(int $aantalSchapen, array $stallen, float $minimaleOppervlakte): bool
     {
-        rsort($stallen);
+        return $this->kanVerdelenZonder3($stallen, $aantalSchapen, $minimaleOppervlakte);
+    }
 
-        $remaining = $aantalSchapen;
+    private function kanVerdelenZonder3(array $stallen, int $aantalSchapen, float $minimaleOppervlakte): bool
+    {
+        $capaciteiten = [];
 
         foreach ($stallen as $stal) {
+            $capaciteiten[] = (int) floor($stal / $minimaleOppervlakte);
+        }
 
-            $capacity = (int) floor($stal / $minOppervlakte);
+        if (array_sum($capaciteiten) < $aantalSchapen) {
+            return false;
+        }
 
-            if ($capacity === 3) {
-                $capacity = 2;
+        return $this->kanToewijzingMaken($capaciteiten, $aantalSchapen);
+    }
+
+    private function kanToewijzingMaken(array $capaciteiten, int $remaining): bool
+    {
+        rsort($capaciteiten);
+
+        return $this->backtrack($capaciteiten, $remaining, 0);
+    }
+
+    private function backtrack(array $caps, int $remaining, int $index): bool
+    {
+        if ($remaining === 0) {
+            return true;
+        }
+
+        if ($index >= count($caps)) {
+            return false;
+        }
+
+        $max = min($caps[$index], $remaining);
+
+        for ($i = $max; $i >= 0; $i--) {
+
+            if ($i === 3) {
+                continue;
             }
 
-            $use = min($capacity, $remaining);
-
-            $remaining -= $use;
-
-            if ($remaining <= 0) {
+            if ($this->backtrack($caps, $remaining - $i, $index + 1)) {
                 return true;
             }
         }
