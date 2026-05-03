@@ -4,17 +4,10 @@ namespace App\Services;
 
 class VerdeelSchapen2Service
 {
-    /** Minimaal aantal vierkante meters per schaap */
+    // Minimaal aantal vierkante meters per schaap
     private const float MIN_M2_PER_SCHAAP = 2.0;
 
-    /** Precisie van de binary search (stopt als interval kleiner is dan dit) */
-    private const float PRECISIE = 0.001;
-
-    /**
-     * Bepaal het maximale aantal m2 per schaap bij een optimale verdeling.
-     *
-     * We zoeken de hoogst mogelijke oppervlakte per schaap waarvoor nog een geldige verdeling mogelijk is
-     */
+    // zoeken de hoogst mogelijke oppervlakte per schaap waarvoor nog een geldige verdeling mogelijk is
     public function verdeelSchapen(int $aantalSchapen, array $stallen): string
     {
         // Basale check
@@ -31,7 +24,7 @@ class VerdeelSchapen2Service
         $hoog  = (float) max($stallen);   // bovengrens
         $beste = $laag;                   // beste gevonden waarde
 
-        while ($hoog - $laag > self::PRECISIE) {
+        while ($hoog - $laag > 0.001) {
             $midden = ($laag + $hoog) / 2;
 
             if ($this->isVerdelingMogelijk($stallen, $aantalSchapen, $midden)) {
@@ -45,12 +38,10 @@ class VerdeelSchapen2Service
         return number_format($beste, 1, ',', '.');
     }
 
-    /**
-     * Controleer of het mogelijk is om $aantalSchapen schapen te verdelen over de gegeven stallen met minimaal $m2PerSchaap m2 per schaap.
-     */
+    // Controleer of het mogelijk is om $aantalSchapen schapen te verdelen over de gegeven stallen met minimaal $m2PerSchaap m2 per schaap
     private function isVerdelingMogelijk(array $stallen, int $aantalSchapen, float $m2PerSchaap): bool
     {
-        // $bereikbaar[$n] = true betekent: we kunnen exact $n schapen plaatsen met de stallen die tot nu toe verwerkt zijn
+        // true is we kunnen exact aantal schapen plaatsen met de stallen die tot nu toe verwerkt zijn
         $bereikbaar    = array_fill(0, $aantalSchapen + 1, false);
         $bereikbaar[0] = true; // 0 schapen plaatsen is altijd mogelijk (beginpunt)
 
@@ -58,7 +49,7 @@ class VerdeelSchapen2Service
             // Hoeveel schapen passen er maximaal in deze stal?
             $capaciteit = (int) floor($stalOppervlakte / $m2PerSchaap);
 
-            // Precies 3 schapen in één stal is verboden; alle andere aantallen zijn ok.
+            // Precies 3 schapen in één stal is verboden; alle andere aantallen zijn oke
             $toegestaneAantallen = [];
             for ($schapenInStal = 0; $schapenInStal <= $capaciteit; $schapenInStal++) {
                 if ($schapenInStal === 3) {
