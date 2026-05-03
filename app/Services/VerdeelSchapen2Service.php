@@ -4,88 +4,93 @@ namespace App\Services;
 
 class VerdeelSchapen2Service
 {
+    /** Minimaal aantal vierkante meters per schaap */
+    private const float MIN_M2_PER_SCHAAP = 2.0;
+
+    /** Precisie van de binary search (stopt als interval kleiner is dan dit) */
+    private const float PRECISIE = 0.001;
+
+    /**
+     * Bepaal het maximale aantal m2 per schaap bij een optimale verdeling.
+     *
+     * We zoeken de hoogst mogelijke oppervlakte per schaap waarvoor nog een geldige verdeling mogelijk is
+     */
     public function verdeelSchapen(int $aantalSchapen, array $stallen): string
     {
-        // basale check
+        // Basale check
         if ($aantalSchapen <= 0 || empty($stallen)) {
-            return $this->fail();
+            return $this->foutmelding();
         }
 
-        // minimale check
-        if (!$this->kunnenWeVerdelen($stallen, $aantalSchapen, 2.0)) {
-            return $this->fail();
+        // Controleer of het mogelijk is met het minimum van 2 m2 per schaap
+        if (!$this->isVerdelingMogelijk($stallen, $aantalSchapen, self::MIN_M2_PER_SCHAAP)) {
+            return $this->foutmelding();
         }
 
-        // minimale vereiste oppervlakte
-        $low = 2.0;
+        $laag  = self::MIN_M2_PER_SCHAAP; // ondergrens
+        $hoog  = (float) max($stallen);   // bovengrens
+        $beste = $laag;                   // beste gevonden waarde
 
-        // kies de grootste stal
-        $high = max($stallen);
+        while ($hoog - $laag > self::PRECISIE) {
+            $midden = ($laag + $hoog) / 2;
 
-        // meest ideale oppervlakte
-        $best = 2.0;
-
-        // best haalbare m2 per schaap
-        while ($high - $low > 0.001) {
-            $oppervlakte = ($low + $high) / 2;
-
-            if ($this->kunnenWeVerdelen($stallen, $aantalSchapen, $oppervlakte)) {
-                $best = $oppervlakte;
-                $low = $oppervlakte;
+            if ($this->isVerdelingMogelijk($stallen, $aantalSchapen, $midden)) {
+                $beste = $midden;
+                $laag  = $midden;
             } else {
-                $high = $oppervlakte;
+                $hoog = $midden;
             }
         }
 
-        return number_format($best, 1, ',', '.');
+        return number_format($beste, 1, ',', '.');
     }
 
-    private function kunnenWeVerdelen(array $stallen, int $aantalSchapen, float $oppervlakte): bool
+    /**
+     * Controleer of het mogelijk is om $aantalSchapen schapen te verdelen over de gegeven stallen met minimaal $m2PerSchaap m2 per schaap.
+     */
+    private function isVerdelingMogelijk(array $stallen, int $aantalSchapen, float $m2PerSchaap): bool
     {
-        // maak een array
-        $results = array_fill(0, $aantalSchapen + 1, false);
-        $results[0] = true;
+        // $bereikbaar[$n] = true betekent: we kunnen exact $n schapen plaatsen met de stallen die tot nu toe verwerkt zijn
+        $bereikbaar    = array_fill(0, $aantalSchapen + 1, false);
+        $bereikbaar[0] = true; // 0 schapen plaatsen is altijd mogelijk (beginpunt)
 
-        foreach ($stallen as $stal) {
+        foreach ($stallen as $stalOppervlakte) {
+            // Hoeveel schapen passen er maximaal in deze stal?
+            $capaciteit = (int) floor($stalOppervlakte / $m2PerSchaap);
 
-            // bereken hoeveel schapen maximaal in deze stal passen gegeven de gewenste oppervlakte per schaap
-            $capaciteit = (int) floor($stal / $oppervlakte);
-
-            // bepaal alle toegestane aantallen schapen voor deze stal
-            $mogelijk = [];
-
-            for ($i = 0; $i <= $capaciteit; $i++) {
-                if ($i === 3) continue;
-                $mogelijk[] = $i;
+            // Precies 3 schapen in één stal is verboden; alle andere aantallen zijn ok.
+            $toegestaneAantallen = [];
+            for ($schapenInStal = 0; $schapenInStal <= $capaciteit; $schapenInStal++) {
+                if ($schapenInStal === 3) {
+                    continue;
+                }
+                $toegestaneAantallen[] = $schapenInStal;
             }
 
-            // nieuwe array
-            $next = array_fill(0, $aantalSchapen + 1, false);
+            $nieuwBereikbaar = $bereikbaar;
 
-            for ($i = 0; $i <= $aantalSchapen; $i++) {
+            for ($huidigTotaal = 0; $huidigTotaal <= $aantalSchapen; $huidigTotaal++) {
 
-                // als dit aantal nog niet haalbaar was, skippen
-                if (!$results[$i]) continue;
+                if (!$bereikbaar[$huidigTotaal]) {
+                    continue;
+                }
 
-                // probeer alle mogelijke aantallen voor deze stal
-                foreach ($mogelijk as $m) {
+                foreach ($toegestaneAantallen as $extraSchapen) {
+                    $nieuwTotaal = $huidigTotaal + $extraSchapen;
 
-                    // als we binnen de grens blijven, markeer als haalbaar
-                    if ($i + $m <= $aantalSchapen) {
-                        $next[$i + $m] = true;
+                    if ($nieuwTotaal <= $aantalSchapen) {
+                        $nieuwBereikbaar[$nieuwTotaal] = true;
                     }
                 }
             }
 
-            // update met de nieuwe mogelijkheden na deze stal
-            $results = $next;
+            $bereikbaar = $nieuwBereikbaar;
         }
 
-        // Uiteindelijk checken we of we exact het aantal schapen kunnen plaatsen
-        return $results[$aantalSchapen];
+        return $bereikbaar[$aantalSchapen];
     }
 
-    private function fail(): string
+    private function foutmelding(): string
     {
         return 'Het ingevoerde aantal schapen kan niet worden ondergebracht in de stallen!';
     }
